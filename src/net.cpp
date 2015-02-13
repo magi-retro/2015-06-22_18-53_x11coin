@@ -1234,9 +1234,13 @@ void ThreadDNSAddressSeed2(void* parg)
 
 
  unsigned int pnSeed[] = {
+    0xe8cf8368 , 
+    0x26c3f1c0 , 
+    0x5cd08368 ,
+ 	
     0x4668c7c6 , /* IP addr 12.34.56.78 */
-	0x0f84f25c , /* IP addr 12.34.56.78 */
-	0xa165c7c6 , /* IP addr 12.34.56.78 */
+    0x0f84f25c , /* IP addr 12.34.56.78 */
+    0xa165c7c6 , /* IP addr 12.34.56.78 */
   };
 
 
