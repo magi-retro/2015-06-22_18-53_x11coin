@@ -6,7 +6,7 @@ addnode=104.131.207.232
 addnode=104.131.208.92
 
 
-Please use the udpated repo
+Please use the updated repo
 
 https://github.com/atcsecure/XC_XBridge.git
 
