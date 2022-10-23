@@ -164,7 +164,7 @@ void OverviewPage::setModel(WalletModel *model)
         filter->setLimit(NUM_ITEMS);
         filter->setDynamicSortFilter(true);
         filter->setSortRole(Qt::EditRole);
-        filter->sort(TransactionTableModel::Status, Qt::DescendingOrder);
+        filter->sort(TransactionTableModel::Date, Qt::DescendingOrder);
 
         ui->listTransactions->setModel(filter);
         ui->listTransactions->setModelColumn(TransactionTableModel::ToAddress);
@@ -179,7 +179,7 @@ void OverviewPage::setModel(WalletModel *model)
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
     }
 
-    // update the display unit, to not use the default ("MINT")
+    // update the display unit, to not use the default ("XMG")
     updateDisplayUnit();
 }
 
