@@ -70,7 +70,7 @@ map<uint256, map<uint256, CDataStream*> > mapOrphanTransactionsByPrev;
 // Constant stuff for coinbase transactions we create:
 CScript COINBASE_FLAGS;
 
-const string strMessageMagic = "X11Coin Signed Message:\n";
+const string strMessageMagic = "Magi Signed Message:\n";
 
 double dHashesPerSec;
 int64 nHPSTimerStart;
@@ -1497,8 +1497,8 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
     // Now that the whole chain is irreversibly beyond that time it is applied to all blocks except the
     // two in the chain that violate it. This prevents exploiting the issue against nodes in their
     // initial block download.
-    bool fEnforceBIP30 = true; // Always active in X11Coin
-    bool fStrictPayToScriptHash = true; // Always active in X11Coin
+    bool fEnforceBIP30 = true; // Always active in Magi
+    bool fStrictPayToScriptHash = true; // Always active in Magi
 
     //// issue here: it doesn't know the version
     unsigned int nTxPos;
@@ -2444,7 +2444,7 @@ bool CheckDiskSpace(uint64 nAdditionalBytes)
         string strMessage = _("Warning: Disk space is low!");
         strMiscWarning = strMessage;
         printf("*** %s\n", strMessage.c_str());
-        uiInterface.ThreadSafeMessageBox(strMessage, "X11Coin", CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
+        uiInterface.ThreadSafeMessageBox(strMessage, "Magi", CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
         StartShutdown();
         return false;
     }
@@ -4290,7 +4290,7 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     return true;
 }
 
-void static ThreadBitcoinMiner(void* parg);
+void static ThreadMagiMiner(void* parg);
 
 static bool fGenerateBitcoins = false;
 static bool fLimitProcessors = false;
@@ -4467,7 +4467,7 @@ void BitcoinMiner(CWallet *pwallet, bool fProofOfStake)
 }
 
 
-void static ThreadBitcoinMiner(void* parg)
+void static ThreadMagiMiner(void* parg)
 {
     CWallet* pwallet = (CWallet*)parg;
     try
@@ -4478,15 +4478,15 @@ void static ThreadBitcoinMiner(void* parg)
     }
     catch (std::exception& e) {
         vnThreadsRunning[THREAD_MINER]--;
-        PrintException(&e, "ThreadBitcoinMiner()");
+        PrintException(&e, "ThreadMagiMiner()");
     } catch (...) {
         vnThreadsRunning[THREAD_MINER]--;
-        PrintException(NULL, "ThreadBitcoinMiner()");
+        PrintException(NULL, "ThreadMagiMiner()");
     }
     nHPSTimerStart = 0;
     if (vnThreadsRunning[THREAD_MINER] == 0)
         dHashesPerSec = 0;
-    printf("ThreadBitcoinMiner exiting, %d threads remaining\n", vnThreadsRunning[THREAD_MINER]);
+    printf("ThreadMagiMiner exiting, %d threads remaining\n", vnThreadsRunning[THREAD_MINER]);
 }
 
 
@@ -4510,8 +4510,8 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet)
         printf("Starting %d BitcoinMiner threads\n", nAddThreads);
         for (int i = 0; i < nAddThreads; i++)
         {
-            if (!NewThread(ThreadBitcoinMiner, pwallet))
-                printf("Error: NewThread(ThreadBitcoinMiner) failed\n");
+            if (!NewThread(ThreadMagiMiner, pwallet))
+                printf("Error: NewThread(ThreadMagiMiner) failed\n");
             Sleep(10);
         }
     }
