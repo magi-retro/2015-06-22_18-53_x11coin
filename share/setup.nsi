@@ -5,9 +5,9 @@ SetCompressor /SOLID lzma
 
 # General Symbol Definitions
 !define REGKEY "SOFTWARE\$(^Name)"
-!define VERSION 0.3.0
+!define VERSION 1.0.0.1
 !define COMPANY "Magi project"
-!define URL http://
+!define URL http://www.cryptomagic.com
 
 # MUI Symbol Definitions
 !define MUI_ICON "../share/pixmaps/Magi.ico"
@@ -51,7 +51,7 @@ CRCCheck on
 XPStyle on
 BrandingText " "
 ShowInstDetails show
-VIProductVersion 0.3.0.0
+VIProductVersion 1.0.0.1
 VIAddVersionKey ProductName Magi
 VIAddVersionKey ProductVersion "${VERSION}"
 VIAddVersionKey CompanyName "${COMPANY}"
