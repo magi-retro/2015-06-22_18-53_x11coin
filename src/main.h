@@ -10,7 +10,7 @@
 #include "net.h"
 #include "script.h"
 #include "scrypt_mine.h"
-#include "hashblock.h"
+#include "hash_magi.h"
 
 #include <list>
 
@@ -27,18 +27,23 @@ class CRequestTracker;
 class CNode;
 
 
-#define POW_CUTOFF_HEIGHT 21000
+static const int MAX_MAGI_POW_HEIGHT = 25000000;
+static const int PRM_MAGI_POW_HEIGHT = 80000;
+static const int END_MAGI_POW_HEIGHT = 500000;
 
 static const unsigned int MAX_BLOCK_SIZE = 1000000;
 static const unsigned int MAX_BLOCK_SIZE_GEN = MAX_BLOCK_SIZE/2;
 static const unsigned int MAX_BLOCK_SIGOPS = MAX_BLOCK_SIZE/50;
 static const unsigned int MAX_ORPHAN_TRANSACTIONS = MAX_BLOCK_SIZE/100;
-static const unsigned int MAX_INV_SZ = 30000;
-static const int64 MIN_TX_FEE = .00001 * COIN;
-static const int64 MIN_RELAY_TX_FEE = .00001 * COIN;
-static const int64 MAX_MONEY = 60000000 * COIN;
-static const int64 MAX_MONEY2 = 60000000 * COIN;			// 60 mil
-static const int64 MAX_MINT_PROOF_OF_STAKE = 0.0333 * COIN;	// 3.33% annual interest
+static const unsigned int MAX_INV_SZ = 50000;
+static const int64 MIN_TX_FEE = .0001 * COIN;
+static const int64 MIN_RELAY_TX_FEE = MIN_TX_FEE;
+static const int64 MAX_MONEY = 25000000 * COIN;			// 25 mil
+//static const int64 MAX_MONEY_POW_PRM = 10000000 * COIN;		// 10 mil; 5.5 mil in 1st magipow
+//static const int64 MAX_MONEY_POW_END = 15000000 * COIN;		// 15 mil; 5 mil in 2nd magipow
+static const double MAX_MAGI_PROOF_OF_STAKE = 0.05;		// dynamic annual interest, max 5%
+static const double MAX_MAGI_BALANCE_in_STAKE = 0.15;		// balance/money supply, max 15%
+static const int64 MAX_MONEY_STAKE_REF = MAX_MONEY/5;		// MAX_MONEY/5
 
 static const int64 MIN_TXOUT_AMOUNT = MIN_TX_FEE;
 
@@ -46,14 +51,28 @@ inline bool MoneyRange(int64 nValue) { return (nValue >= 0 && nValue <= MAX_MONE
 // Threshold for nLockTime: below this value it is interpreted as block number, otherwise as UNIX timestamp.
 static const unsigned int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
 
+inline bool IsMiningProofOfWork(int nHeight)
+{
+    return nHeight <= MAX_MAGI_POW_HEIGHT;
+}
+//inline bool IsMiningProofOfWork() { return true; }
+
+inline bool IsMiningProofOfStake(int nHeight ) 
+{
+    if (fTestNet) return nHeight > 10;
+    return nHeight > 6720; // two weeks
+}
+
 #ifdef USE_UPNP
 static const int fHaveUPnP = true;
 #else
 static const int fHaveUPnP = false;
 #endif
 
-static const uint256 hashGenesisBlockOfficial("0x0000076130e1a816bab8f26310839ab601305b2315dc3b8b1a250faa0cb1f9a8");
-static const uint256 hashGenesisBlockTestNet ("0x0000076130e1a816bab8f26310839ab601305b2315dc3b8b1a250faa0cb1f9a8");
+static const uint256 hashGenesisBlockOfficial("0x000004c91ca895a8c63176b1671eff34291ad671e59ae46630ffd8f985dd56cc");
+//static const uint256 hashGenesisBlockOfficial("0x0000094d72610766beea0afa6a3941c05b1debc5dd3a19aa74c98198709c5a80");
+static const uint256 hashGenesisBlockTestNet ("0x000005fef85d8e77a4307afc8a9dc8f4441241767b06a4035d565bfa5b0b7d31");
+//static const uint256 hashGenesisBlockTestNet ("0x00000a35ec89cf297d5403ea161e6c04a4e53793c1000359c078eabb74e8ea91");
 
 static const int64 nMaxClockDrift = 2 * 60 * 60;        // two hours
 
@@ -67,6 +86,7 @@ extern uint256 hashGenesisBlock;
 extern CBlockIndex* pindexGenesisBlock;
 extern unsigned int nStakeMinAge;
 extern int nCoinbaseMaturity;
+//extern int64 nLastPrevMoneySupply;
 extern int nBestHeight;
 extern CBigNum bnBestChainTrust;
 extern CBigNum bnBestInvalidTrust;
@@ -87,6 +107,7 @@ extern std::map<uint256, CBlock*> mapOrphanBlocks;
 
 // Settings
 extern int64 nTransactionFee;
+extern int64 nMinimumInputValue;
 
 // Minimum disk space required - used in CheckDiskSpace()
 static const uint64 nMinDiskSpace = 52428800;
@@ -109,14 +130,14 @@ CBlockIndex* FindBlockByHeight(int nHeight);
 bool ProcessMessages(CNode* pfrom);
 bool SendMessages(CNode* pto, bool fSendTrickle);
 bool LoadExternalBlockFile(FILE* fileIn);
-void GenerateBitcoins(bool fGenerate, CWallet* pwallet);
+void GenerateMagi(bool fGenerate, CWallet* pwallet);
 CBlock* CreateNewBlock(CWallet* pwallet, bool fProofOfStake=false);
 void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
 void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash1);
 bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey);
 bool CheckProofOfWork(uint256 hash, unsigned int nBits);
-int64 GetProofOfWorkReward(int nHeight, int64 nFees, uint256 prevHash);
-int64 GetProofOfStakeReward(int64 nCoinAge, unsigned int nBits, unsigned int nTime, int nHeight);
+int64 GetProofOfWorkReward(int nBits, int nHeight, int64 nFees);
+int64 GetProofOfStakeReward(int64 nCoinAge, int64 nFees, CBlockIndex* pindex);
 unsigned int ComputeMinWork(unsigned int nBase, int64 nTime);
 unsigned int ComputeMinStake(unsigned int nBase, int64 nTime, unsigned int nBlockTime);
 int GetNumBlocksOfPeers();
@@ -125,16 +146,27 @@ std::string GetWarnings(std::string strFor);
 bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock);
 uint256 WantedByOrphan(const CBlock* pblockOrphan);
 const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfStake);
-void BitcoinMiner(CWallet *pwallet, bool fProofOfStake);
+const CBlockIndex* GetLastPoSBlockIndex(const CBlockIndex* pindex);
+const CBlockIndex* GetLastPoWBlockIndex(const CBlockIndex* pindex);
+void MagiMiner(CWallet *pwallet, bool fProofOfStake);
 void ResendWalletTransactions();
+double GetDifficultyFromBits(unsigned int nBits);
+double GetAnnualInterest_TestNet(int64 nNetWorkWeit, double rMaxAPR);
+double GetAnnualInterest(int64 nNetWorkWeit, double rMaxAPR);
+//bool CheckMoneySupply(CBlockIndex* pindexPrev);
 
-
-
-
-
-
-
-
+inline double exp_n(double xt)
+{
+    double p1 = -700.0, p3 = -0.8e-8, p4 = 0.8e-8, p6 = 700.0;
+    if(xt < p1)
+        return 0;
+    else if(xt > p6)
+        return 1e200;
+    else if(xt > p3 && xt < p4)
+        return (1.0 + xt);
+    else
+        return exp(xt);
+}
 
 
 bool GetWalletFile(CWallet* pwallet, std::string &strWalletFileOut);
@@ -598,7 +630,7 @@ public:
     {
         // Large (in bytes) low-priority (new, small-coin) transactions
         // need a fee.
-        return dPriority > COIN * 960 / 250;
+        return dPriority > COIN * 1440 / 250;
     }
 
     int64 GetMinFee(unsigned int nBlockSize=1, bool fAllowFree=false, enum GetMinFee_mode mode=GMF_BLOCK, unsigned int nBytes = 0) const;
@@ -854,6 +886,7 @@ public:
     unsigned int nTime;
     unsigned int nBits;
     unsigned int nNonce;
+//    int64 nPrevMoneySupply;
 
     // network and disk
     std::vector<CTransaction> vtx;
@@ -882,6 +915,7 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+//        READWRITE(nPrevMoneySupply);
 
         // ConnectBlock depends on vtx following header to generate CDiskTxPos
         if (!(nType & (SER_GETHASH|SER_BLOCKHEADERONLY)))
@@ -904,6 +938,7 @@ public:
         nTime = 0;
         nBits = 0;
         nNonce = 0;
+//        nPrevMoneySupply = 0;
         vtx.clear();
         vchBlockSig.clear();
         vMerkleTree.clear();
@@ -917,7 +952,10 @@ public:
 
     uint256 GetHash() const
     {
-            return Hash9(BEGIN(nVersion), END(nNonce));
+//        unsigned int nNonce2 = nNonce / 2;
+	return hash_M7M(BEGIN(nVersion), END(nNonce));
+//	return hash_d_M7(BEGIN(nVersion), END(nNonce));
+//	return hash_f_M7(BEGIN(nVersion), END(nNonce));
     }
 
     int64 GetBlockTime() const
@@ -1152,6 +1190,7 @@ public:
     unsigned int nTime;
     unsigned int nBits;
     unsigned int nNonce;
+//    int64 nPrevMoneySupply;
 
     CBlockIndex()
     {

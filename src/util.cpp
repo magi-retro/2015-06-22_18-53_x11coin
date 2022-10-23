@@ -65,6 +65,7 @@ using namespace std;
 map<string, string> mapArgs;
 map<string, vector<string> > mapMultiArgs;
 bool fDebug = false;
+bool fDebugMagi = false;
 bool fDebugNet = false;
 bool fPrintToConsole = false;
 bool fPrintToDebugger = false;
@@ -290,7 +291,7 @@ string vstrprintf(const char *format, va_list ap)
     char* p = buffer;
     int limit = sizeof(buffer);
     int ret;
-    loop
+    while (true)
     {
         va_list arg_ptr;
         va_copy(arg_ptr, ap);
@@ -350,7 +351,7 @@ void ParseString(const string& str, char c, vector<string>& v)
         return;
     string::size_type i1 = 0;
     string::size_type i2;
-    loop
+    while (true)
     {
         i2 = str.find(c, i1);
         if (i2 == str.npos)
@@ -512,7 +513,7 @@ vector<unsigned char> ParseHex(const char* psz)
 {
     // convert hex dump to vector
     vector<unsigned char> vch;
-    loop
+    while (true)
     {
         while (isspace(*psz))
             psz++;
@@ -594,6 +595,7 @@ void ParseParameters(int argc, const char* const argv[])
     }
 }
 
+//if string strArg exists in mapArgs, return the corresponding value (string), otherwise return strDefault (string)
 std::string GetArg(const std::string& strArg, const std::string& strDefault)
 {
     if (mapArgs.count(strArg))
@@ -601,6 +603,7 @@ std::string GetArg(const std::string& strArg, const std::string& strDefault)
     return strDefault;
 }
 
+//if string strArg exists in mapArgs, return the corresponding value (int64), otherwise return strDefault (string) (int64)
 int64 GetArg(const std::string& strArg, int64 nDefault)
 {
     if (mapArgs.count(strArg))
@@ -608,6 +611,9 @@ int64 GetArg(const std::string& strArg, int64 nDefault)
     return nDefault;
 }
 
+// if strArg appears in mapArgs and strArg is non-zero value, return true, 
+// if strArg appears in mapArgs and strArg is zero, return false, 
+// if strArg does not appear in mapArgs, return fDefault, 
 bool GetBoolArg(const std::string& strArg, bool fDefault)
 {
     if (mapArgs.count(strArg))
@@ -966,7 +972,7 @@ string DecodeBase32(const string& str)
 
 bool WildcardMatch(const char* psz, const char* mask)
 {
-    loop
+    while (true)
     {
         switch (*mask)
         {
@@ -1058,7 +1064,7 @@ boost::filesystem::path GetDefaultDataDir()
     // Windows < Vista: C:\Documents and Settings\Username\Application Data\Magi
     // Windows >= Vista: C:\Users\Username\AppData\Roaming\Magi
     // Mac: ~/Library/Application Support/Magi
-    // Unix: ~/.Magi
+    // Unix: ~/.magi
 #ifdef WIN32
     // Windows
     return GetSpecialFolderPath(CSIDL_APPDATA) / "Magi";
@@ -1076,7 +1082,7 @@ boost::filesystem::path GetDefaultDataDir()
     return pathRet / "Magi";
 #else
     // Unix
-    return pathRet / ".Magi";
+    return pathRet / ".magi";
 #endif
 #endif
 }
@@ -1247,9 +1253,14 @@ void SetMockTime(int64 nMockTimeIn)
 
 static int64 nTimeOffset = 0;
 
+int64_t GetTimeOffset()
+{
+    return nTimeOffset;
+}
+
 int64 GetAdjustedTime()
 {
-    return GetTime() + nTimeOffset;
+    return GetTime() + GetTimeOffset();
 }
 
 void AddTimeData(const CNetAddr& ip, int64 nTime)

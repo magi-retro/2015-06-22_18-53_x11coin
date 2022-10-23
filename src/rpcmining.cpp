@@ -43,7 +43,8 @@ Value setgenerate(const Array& params, bool fHelp)
     }
     mapArgs["-gen"] = (fGenerate ? "1" : "0");
 
-    GenerateBitcoins(fGenerate, pwalletMain);
+    assert(pwalletMain != NULL);
+    GenerateMagi(fGenerate, pwalletMain);
     return Value::null;
 }
 
@@ -60,26 +61,46 @@ Value gethashespersec(const Array& params, bool fHelp)
     return (boost::int64_t)dHashesPerSec;
 }
 
-
+inline double GetAnnualInterest(int64 nNetWorkWeit, double rMaxAPR, int nHeight);
 Value getmininginfo(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getmininginfo\n"
             "Returns an object containing mining-related information.");
+    uint64 nWeight = 0, nMinMax;
+    pwalletMain->GetStakeWeight(nMinMax, nMinMax, nWeight);
+    int64_t nNetWorkWeit = GetPoSKernelPS();
 
-    Object obj;
-    obj.push_back(Pair("blocks",        (int)nBestHeight));
-    obj.push_back(Pair("currentblocksize",(uint64_t)nLastBlockSize));
-    obj.push_back(Pair("currentblocktx",(uint64_t)nLastBlockTx));
-    obj.push_back(Pair("difficulty",    (double)GetDifficulty()));
-    obj.push_back(Pair("errors",        GetWarnings("statusbar")));
-    obj.push_back(Pair("generate",      GetBoolArg("-gen")));
-    obj.push_back(Pair("genproclimit",  (int)GetArg("-genproclimit", -1)));
-    obj.push_back(Pair("hashespersec",  gethashespersec(params, false)));
-	obj.push_back(Pair("networkhashps", getnetworkhashps(params, false)));
-    obj.push_back(Pair("pooledtx",      (uint64_t)mempool.size()));
-    obj.push_back(Pair("testnet",       fTestNet));
+    Object obj, diff, weight;
+    obj.push_back(Pair("blocks",           (int)nBestHeight));
+    obj.push_back(Pair("currentblocksize", (uint64_t)nLastBlockSize));
+    obj.push_back(Pair("currentblocktx",   (uint64_t)nLastBlockTx));
+
+    diff.push_back(Pair("proof-of-work",   GetDifficulty()));
+    diff.push_back(Pair("proof-of-stake",  GetDifficulty(GetLastBlockIndex(pindexBest, true))));
+    diff.push_back(Pair("search-interval", (int)nLastCoinStakeSearchInterval));
+    obj.push_back(Pair("difficulty",       diff));
+
+    obj.push_back(Pair("blockvalue",       (uint64_t)(GetProofOfWorkReward(pindexBest->nBits, pindexBest->nHeight, 0)/COIN)));
+    obj.push_back(Pair("netmhashps",       GetPoWMHashPS()));
+    obj.push_back(Pair("netstakeweight",   GetPoSKernelPS()));
+    obj.push_back(Pair("errors",           GetWarnings("statusbar")));
+    obj.push_back(Pair("pooledtx",         (uint64_t)mempool.size()));
+
+    weight.push_back(Pair("minimum",       (uint64_t)nWeight));
+    weight.push_back(Pair("maximum",       (uint64_t)0));
+    weight.push_back(Pair("combined",      (uint64_t)nWeight));
+    obj.push_back(Pair("stakeweight",      weight));
+
+    obj.push_back(Pair("stakeinterest",    (double)GetAnnualInterest((int64)nNetWorkWeit, MAX_MAGI_PROOF_OF_STAKE)));
+    obj.push_back(Pair("testnet",          fTestNet));
+
+    obj.push_back(Pair("generate",         GetBoolArg("-gen")));
+    obj.push_back(Pair("genproclimit",     (int)GetArg("-genproclimit", -1)));
+    obj.push_back(Pair("hashespersec",     gethashespersec(params, false)));
+    obj.push_back(Pair("networkhashps",    getnetworkhashps(params, false)));
+    obj.push_back(Pair("testnet",          fTestNet));
     return obj;
 }
 
@@ -272,7 +293,7 @@ Value getwork(const Array& params, bool fHelp)
     static CReserveKey reservekey(pwalletMain);
 
     if (params.size() == 0)
-    {
+    { 
         // Update block
         static unsigned int nTransactionsUpdatedLast;
         static CBlockIndex* pindexPrev;
@@ -327,7 +348,34 @@ Value getwork(const Array& params, bool fHelp)
 
         uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
 
-        Object result;
+if (fDebug && fDebugMagi)
+{
+    std::string cdata = HexStr(BEGIN(pdata), END(pdata));
+    std::string chashTarget = HexStr(BEGIN(hashTarget), END(hashTarget));
+    printf(">>$ work sent: \n");
+    printf("nVersion:       %i\n", pblock->nVersion);
+    printf("hashPrevBlock:  0x%s\n", pblock->hashPrevBlock.GetHex().c_str());
+    printf("hashMerkleRoot: 0x%s\n", pblock->hashMerkleRoot.GetHex().c_str());
+    printf("nTime:          %i\n", pblock->nTime);
+    printf("nBits:          %i\n", pblock->nBits);
+    printf("nNonce:         %i\n", pblock->nNonce);
+//    printf("nPrevMoneySupply: %"PRI64d"\n", pblock->nPrevMoneySupply);
+    printf("-----------------\n");
+    printf("hashTarget:     0x%s\n", hashTarget.GetHex().c_str());
+    printf(">>$ work sent (bytes swapped): \n");
+    printf("all:            0x%s\n", cdata.c_str());
+    printf("nVersion:       0x%s\n", cdata.substr(0, 8).c_str());
+    printf("hashPrevBlock:  0x%s\n", cdata.substr(8, 64).c_str());
+    printf("hashMerkleRoot: 0x%s\n", cdata.substr(72, 64).c_str());
+    printf("nTime:          0x%s\n", cdata.substr(136, 8).c_str());
+    printf("nBits:          0x%s\n", cdata.substr(144, 8).c_str());
+    printf("nNonce:         0x%s\n", cdata.substr(152, 8).c_str());
+//    printf("nPrevMoneySupply: 0x%s\n", cdata.substr(160, 16).c_str());
+    printf("-----------------\n");
+    printf("hashTarget:     0x%s\n\n", chashTarget.c_str());
+}
+
+        Object result; // HexStr: inverst bytes
         result.push_back(Pair("midstate", HexStr(BEGIN(pmidstate), END(pmidstate)))); // deprecated
         result.push_back(Pair("data",     HexStr(BEGIN(pdata), END(pdata))));
         result.push_back(Pair("hash1",    HexStr(BEGIN(phash1), END(phash1)))); // deprecated
@@ -339,12 +387,28 @@ Value getwork(const Array& params, bool fHelp)
         // Parse parameters
         vector<unsigned char> vchData = ParseHex(params[0].get_str());
         if (vchData.size() != 128)
+	{
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter");
+	}
         CBlock* pdata = (CBlock*)&vchData[0];
 
         // Byte reverse
         for (int i = 0; i < 128/4; i++)
             ((unsigned int*)pdata)[i] = ByteReverse(((unsigned int*)pdata)[i]);
+if (fDebug && fDebugMagi)
+{
+    printf("<<$ work received: \n");
+    uint256 hashTarget_rc = CBigNum().SetCompact(pdata->nBits).getuint256();
+    printf("nVersion:       %i\n", pdata->nVersion);
+    printf("hashPrevBlock:  0x%s\n", pdata->hashPrevBlock.GetHex().c_str());
+    printf("hashMerkleRoot: 0x%s\n", pdata->hashMerkleRoot.GetHex().c_str());
+    printf("nTime:          %i\n", pdata->nTime);
+    printf("nBits:          %i\n", pdata->nBits);
+    printf("nNonce:         %i\n", pdata->nNonce);
+    printf("-----------------\n");
+    printf("hashTarget:     0x%s\n", hashTarget_rc.GetHex().c_str());
+    printf("hash:           0x%s\n\n", pdata->GetHash().GetHex().c_str());
+}
 
         // Get saved block
         if (!mapNewBlock.count(pdata->hashMerkleRoot))
@@ -356,8 +420,11 @@ Value getwork(const Array& params, bool fHelp)
         pblock->vtx[0].vin[0].scriptSig = mapNewBlock[pdata->hashMerkleRoot].second;
         pblock->hashMerkleRoot = pblock->BuildMerkleTree();
 
+
         if (!pblock->SignBlock(*pwalletMain))
+	{
             throw JSONRPCError(-100, "Unable to sign block, wallet locked?");
+	}
 
         return CheckWork(pblock, *pwalletMain, reservekey);
     }
